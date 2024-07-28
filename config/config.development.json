@@ -1,0 +1,28 @@
+{
+  "serviceName": "book_service",
+  "deliveryType": "http",
+  "context": {
+    "timeout": 20
+  },
+  "echo": {
+    "port": ":5000",
+    "development": true,
+    "timeout": 30,
+    "basePath": "/api/v1",
+    "host": "http://localhost",
+    "debugHeaders": true,
+    "httpClientDebug": true,
+    "debugErrorsResponse": true,
+    "ignoreLogUrls": [
+      "metrics"
+    ]
+  },
+  "PgConfig": {
+    "Host": "localhost",
+    "Port": 5432,
+    "User": "tgbotchecker",
+    "DbName": "tgbotchecker",
+    "SSLMode": false,
+    "Password": "tgbotchecker"
+  }
+}

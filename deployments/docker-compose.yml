@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_DB: "tgbotchecker"
+      POSTGRES_USER: "tgbotchecker"
+      POSTGRES_PASSWORD: "tgbotchecker"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data:/var/lib/postgresql/data
