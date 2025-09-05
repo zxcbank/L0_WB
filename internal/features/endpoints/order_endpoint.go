@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	. "go-template-microservice-v2/internal/features/get_order/queries"
+	. "go-template-microservice-v2/internal/features/queries"
 	"log"
 	"net/http"
 	"time"
@@ -14,42 +14,40 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type WebOrderHandler struct {
+type OrderEndpoint struct {
 	kafkaWriter *kafka.Writer
 	kafkaReader *kafka.Reader
 }
 
-func NewWebOrderHandler() *WebOrderHandler {
-	webOrderHandler := &WebOrderHandler{kafkaWriter: kafka.NewWriter(kafka.WriterConfig{
+func NewOrderEndpoint() *OrderEndpoint {
+	webOrderHandler := &OrderEndpoint{kafkaWriter: kafka.NewWriter(kafka.WriterConfig{
 		Brokers: []string{"localhost:29092"},
 	}), kafkaReader: kafka.NewReader(kafka.ReaderConfig{
 		Brokers:     []string{"localhost:29092"},
 		Topic:       "order-responses",
-		GroupID:     "web-order-handler",
+		GroupID:     "order-endpoint",
 		StartOffset: kafka.FirstOffset,
 	})}
-
-	//go webOrderHandler.consumeKafkaMessages()
 
 	return webOrderHandler
 }
 
-func (h *WebOrderHandler) WebOrderFormHandler(c echo.Context) error {
-	fmt.Println("GET-FORM ORDER OPENED")
+func (h *OrderEndpoint) OrderForm(c echo.Context) error {
 	err := c.Render(http.StatusOK, "order_form.html", nil)
 	if err != nil {
-		fmt.Printf("Rendering error: %v\n", err)
+		log.Printf("Rendering error: %v\n", err)
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("Rendering error: %v", err))
 	}
 
 	return nil
 }
 
-func (h *WebOrderHandler) WebGetOrderHandler(c echo.Context) error {
+func (h *OrderEndpoint) OrderShowResult(c echo.Context) error {
 	orderID := c.FormValue("id")
 	parsedID, err := uuid.Parse(orderID)
 
 	if err != nil {
+		log.Println(err)
 		return c.Render(http.StatusOK, "order_form.html", map[string]interface{}{
 			"Error": "Неверный формат ID заказа",
 		})
@@ -65,9 +63,10 @@ func (h *WebOrderHandler) WebGetOrderHandler(c echo.Context) error {
 
 	requestBytes, err := json.Marshal(kafkaRequest)
 	if err != nil {
+		log.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to marshal request"})
 	}
-	log.Printf("before writing message")
+
 	err = h.kafkaWriter.WriteMessages(c.Request().Context(),
 		kafka.Message{
 			Topic: "order-requests",
@@ -76,18 +75,20 @@ func (h *WebOrderHandler) WebGetOrderHandler(c echo.Context) error {
 		},
 	)
 	if err != nil {
+		log.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to send request to Kafka"})
 	}
 
-	response, err := h.waitForKafkaResponse(correlationID, 10*time.Second)
+	response, err := h.waitForKafkaResponse(correlationID, 10*time.Second, c.Request().Context())
 	if err != nil {
+		log.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	log.Printf("after writing message")
 
 	var entity GetOrderResponse
 	err = json.Unmarshal(response, &entity)
 	if err != nil {
+		log.Println(err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse response"})
 	}
 
@@ -96,9 +97,9 @@ func (h *WebOrderHandler) WebGetOrderHandler(c echo.Context) error {
 	})
 }
 
-func (h *WebOrderHandler) waitForKafkaResponse(correlationID string, timeout time.Duration) ([]byte, error) {
+func (h *OrderEndpoint) waitForKafkaResponse(correlationID string, timeout time.Duration, ctx context.Context) ([]byte, error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	messageChan := make(chan *kafka.Message, 1)

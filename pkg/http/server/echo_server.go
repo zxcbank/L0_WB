@@ -2,19 +2,18 @@ package echoserver
 
 import (
 	"context"
+	"time"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
-	"time"
 )
 
-// Конкстатны для конфигурирования таймаутов и размера запроса
 const (
 	MaxHeaderBytes = 1 << 20
 	ReadTimeout    = 15 * time.Second
 	WriteTimeout   = 15 * time.Second
 )
 
-// EchoConfig - конфигурация echo сервера
 type EchoConfig struct {
 	Port                string   `mapstructure:"port" validate:"required"`
 	Development         bool     `mapstructure:"development"`
@@ -25,13 +24,11 @@ type EchoConfig struct {
 	Host                string   `mapstructure:"host"`
 }
 
-// NewEchoServer - создать новый экземпляр echo сервера
 func NewEchoServer() *echo.Echo {
 	e := echo.New()
 	return e
 }
 
-// RunHttpServer - запустить наш HTTP-сервер
 func RunHttpServer(ctx context.Context, echo *echo.Echo, cfg *EchoConfig) error {
 	echo.Server.ReadTimeout = ReadTimeout
 	echo.Server.WriteTimeout = WriteTimeout

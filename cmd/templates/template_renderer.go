@@ -1,7 +1,6 @@
 package templates
 
 import (
-	"fmt"
 	"html/template"
 	"io"
 
@@ -13,7 +12,6 @@ type TemplateRenderer struct {
 }
 
 func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	fmt.Println("smth rendering")
 	return t.Templates.ExecuteTemplate(w, name, data)
 }
 

@@ -2,8 +2,9 @@ package main
 
 import (
 	"go-template-microservice-v2/config"
-	"go-template-microservice-v2/internal/configurations"
 	"go-template-microservice-v2/internal/data/repositories"
+	. "go-template-microservice-v2/internal/features/endpoints"
+	. "go-template-microservice-v2/internal/features/queries"
 	gormpg "go-template-microservice-v2/pkg/gorm_pg"
 	"go-template-microservice-v2/pkg/http"
 	echoserver "go-template-microservice-v2/pkg/http/server"
@@ -14,9 +15,6 @@ import (
 	"go.uber.org/fx"
 
 	. "go-template-microservice-v2/cmd/templates"
-
-	. "go-template-microservice-v2/internal/features/get_order/endpoints"
-	. "go-template-microservice-v2/internal/features/get_order/queries"
 )
 
 func main() {
@@ -26,25 +24,22 @@ func main() {
 				config.NewConfig,
 				http.NewContext,
 				gormpg.NewPgGorm,
-				repositories.NewPgItemsRepository,
-				repositories.NewPgPaymentRepository,
 				repositories.NewPgOrderRepository,
 				echoserver.NewEchoServer,
 				validator.New,
 				NewTemplateRenderer,
-				NewGetOrderHandler,
-				NewWebOrderHandler,
+				NewOrderService,
+				NewOrderEndpoint,
 			),
-			fx.Invoke(func(e *echo.Echo, handler *WebOrderHandler, renderer *TemplateRenderer) {
+			fx.Invoke(func(e *echo.Echo, handler *OrderEndpoint, renderer *TemplateRenderer) {
 				e.Renderer = renderer
 
-				e.POST("/order", handler.WebGetOrderHandler)
-				e.GET("/find", handler.WebOrderFormHandler)
+				e.POST("/order", handler.OrderShowResult)
+				e.GET("/find", handler.OrderForm)
 			}),
-			fx.Invoke(configurations.ConfigEndpoints),
 			fx.Invoke(server.RunServers),
-			fx.Invoke(NewGetOrderHandler),
-			fx.Invoke(NewWebOrderHandler),
+			fx.Invoke(NewOrderService),
+			fx.Invoke(NewOrderEndpoint),
 		),
 	).Run()
 }

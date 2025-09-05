@@ -3,7 +3,6 @@ package queries
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"go-template-microservice-v2/internal/data/contracts"
 	"log"
 	"sync"
@@ -12,7 +11,7 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type GetOrderHandler struct {
+type OrderService struct {
 	Repository    contracts.IOrderRepository
 	Ctx           context.Context
 	kafkaReader   *kafka.Reader
@@ -21,17 +20,17 @@ type GetOrderHandler struct {
 	mu            sync.RWMutex
 }
 
-func NewGetOrderHandler(
+func NewOrderService(
 	repository contracts.IOrderRepository,
-	ctx context.Context,
-) *GetOrderHandler {
-	handler := &GetOrderHandler{
+	ctx context.Context) *OrderService {
+
+	handler := &OrderService{
 		Repository: repository,
 		Ctx:        ctx,
 		kafkaReader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers:     []string{"localhost:29092"},
 			Topic:       "order-requests",
-			GroupID:     "get-order-handler",
+			GroupID:     "order-service",
 			StartOffset: kafka.FirstOffset,
 		}),
 		kafkaWriter: kafka.NewWriter(kafka.WriterConfig{
@@ -45,11 +44,12 @@ func NewGetOrderHandler(
 	return handler
 }
 
-func (handler *GetOrderHandler) Handle(ctx context.Context, id uuid.UUID) (*GetOrderResponse, error) {
+func (handler *OrderService) HandleGetRequest(ctx context.Context, id uuid.UUID) (*GetOrderResponse, error) {
 	getOrdersResponse := &GetOrderResponse{}
 
 	result, err := handler.Repository.GetOrder(id)
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
 
@@ -70,8 +70,7 @@ func (handler *GetOrderHandler) Handle(ctx context.Context, id uuid.UUID) (*GetO
 	return getOrdersResponse, nil
 }
 
-func (handler *GetOrderHandler) consumeKafkaMessages() {
-	fmt.Println("start consume kafka messages")
+func (handler *OrderService) consumeKafkaMessages() {
 
 	if handler.kafkaReader == nil {
 		log.Fatal("Kafka reader is not initialized")
@@ -94,18 +93,16 @@ func (handler *GetOrderHandler) consumeKafkaMessages() {
 			var request KafkaRequest
 			err := json.Unmarshal(message.Value, &request)
 			if err != nil {
-				log.Printf("Error unmarshaling Kafka message in handler: %v", err)
-				log.Printf("Kafka message: %v", string(message.Value))
+				log.Printf("Kafka message: %v", err)
 				return
 			}
-			log.Printf("kafka message %v", message.Value)
-			log.Printf("requst : %v, %v, %v", request.ID, request.Type, request.CorrelationID)
+
 			id, err := uuid.Parse(request.ID)
 			if err != nil {
 				log.Printf("Error parsing Kafka message: %v", err)
 				return
 			}
-			response, err := handler.Handle(handler.Ctx, id)
+			response, err := handler.HandleGetRequest(handler.Ctx, id)
 			if err != nil {
 				log.Printf("Error processing request: %v", err)
 				return
