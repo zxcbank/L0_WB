@@ -3,25 +3,25 @@ package gormpg
 import (
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun/driver/pgdriver"
 	gorm_postgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"time"
 )
 
 // PgConfig - конфигурация для соединения с Postgresql
 type PgConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	DBName   string `mapstructure:"dbName"`
-	SSLMode  bool   `mapstructure:"sslMode"`
-	Password string `mapstructure:"password"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	User     string `yaml:"user"`
+	DBName   string `yaml:"dbName"`
+	SSLMode  bool   `yaml:"sslMode"`
+	Password string `yaml:"password"`
 }
 
-// PgGorm - модель базы данных
 type PgGorm struct {
 	DB     *gorm.DB
 	Config *PgConfig

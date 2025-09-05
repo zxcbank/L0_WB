@@ -1,5 +1,5 @@
 {
-  "serviceName": "book_service",
+  "serviceName": "my_service",
   "deliveryType": "http",
   "context": {
     "timeout": 20
@@ -20,9 +20,9 @@
   "PgConfig": {
     "Host": "localhost",
     "Port": 5432,
-    "User": "tgbotchecker",
-    "DbName": "tgbotchecker",
+    "User": "sz",
+    "DbName": "main_db",
     "SSLMode": false,
-    "Password": "tgbotchecker"
+    "Password": "sz"
   }
 }

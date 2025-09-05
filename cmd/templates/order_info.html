@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Информация о заказе</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .order-info { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Информация о заказе</h1>
+    {{if .Order}}
+    <div class="order-info">
+        <p><strong>ID заказа:</strong> {{.Order.Id}}</p>
+        <p><strong>Трек-номер:</strong> {{.Order.Track_number}}</p>
+        <p><strong>Статус:</strong> {{.Order.Date_created}}</p>
+    </div>
+    {{else}}
+    <p>Заказ не найден</p>
+    {{end}}
+    <a href="/">Назад к поиску</a>
+</div>
+</body>
+</html>
