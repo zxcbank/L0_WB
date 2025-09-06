@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	. "go-template-microservice-v2/internal/features/endpoints/lru_cache_order"
+
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/segmentio/kafka-go"
@@ -17,6 +19,7 @@ import (
 type OrderEndpoint struct {
 	kafkaWriter *kafka.Writer
 	kafkaReader *kafka.Reader
+	cache       Lru_cache_order
 }
 
 func NewOrderEndpoint() *OrderEndpoint {
@@ -27,7 +30,8 @@ func NewOrderEndpoint() *OrderEndpoint {
 		Topic:       "order-responses",
 		GroupID:     "order-endpoint",
 		StartOffset: kafka.FirstOffset,
-	})}
+	}),
+		cache: Lru_cache_order{CacheMap: make(map[string]Order_timestamp_pair, 10), CacheSize: 10}}
 
 	return webOrderHandler
 }
@@ -53,47 +57,57 @@ func (h *OrderEndpoint) OrderShowResult(c echo.Context) error {
 		})
 	}
 
-	correlationID := uuid.New().String()
+	entityResponse, err := h.cache.Get(orderID)
 
-	kafkaRequest := KafkaRequest{
-		ID:            parsedID.String(),
-		Type:          "get_entity",
-		CorrelationID: correlationID,
-	}
-
-	requestBytes, err := json.Marshal(kafkaRequest)
 	if err != nil {
-		log.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to marshal request"})
-	}
+		correlationID := uuid.New().String()
 
-	err = h.kafkaWriter.WriteMessages(c.Request().Context(),
-		kafka.Message{
-			Topic: "order-requests",
-			Key:   []byte(correlationID),
-			Value: requestBytes,
-		},
-	)
-	if err != nil {
-		log.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to send request to Kafka"})
-	}
+		kafkaRequest := KafkaRequest{
+			ID:            parsedID.String(),
+			Type:          "get_entity",
+			CorrelationID: correlationID,
+		}
 
-	response, err := h.waitForKafkaResponse(correlationID, 10*time.Second, c.Request().Context())
-	if err != nil {
-		log.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
+		requestBytes, err := json.Marshal(kafkaRequest)
+		if err != nil {
+			log.Println(err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to marshal request"})
+		}
 
-	var entity GetOrderResponse
-	err = json.Unmarshal(response, &entity)
-	if err != nil {
-		log.Println(err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse response"})
+		err = h.kafkaWriter.WriteMessages(c.Request().Context(),
+			kafka.Message{
+				Topic: "order-requests",
+				Key:   []byte(correlationID),
+				Value: requestBytes,
+			},
+		)
+		if err != nil {
+			log.Println(err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to send request to Kafka"})
+		}
+
+		response, err := h.waitForKafkaResponse(correlationID, 10*time.Second, c.Request().Context())
+		if err != nil {
+			log.Println(err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		var db_entity GetOrderResponse
+		err = json.Unmarshal(response, &db_entity)
+		if err != nil {
+			log.Println(err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse response"})
+		}
+
+		entityResponse.Order = db_entity.Order
 	}
+	currentTime := time.Now()
+
+	orderRimeStampPair := Order_timestamp_pair{OrderResponse: entityResponse, TimeStamp: currentTime}
+	h.cache.Add(orderID, orderRimeStampPair)
 
 	return c.Render(http.StatusOK, "order_info.html", map[string]interface{}{
-		"Order": entity.Order,
+		"Order": entityResponse.Order,
 	})
 }
 
